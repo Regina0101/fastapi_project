@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date
+from src.schemas.user import UserResponse
 
 class ContactBase(BaseModel):
     first_name: str
@@ -15,6 +16,7 @@ class ContactCreate(ContactBase):
 
 class ContactRead(ContactBase):
     id: int = 1
+    user: UserResponse | None
 
     class Config:
         from_attributes = True
