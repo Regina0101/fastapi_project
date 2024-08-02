@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
+from uuid import UUID
 from typing import Optional
 
 class UserBase(BaseModel):
@@ -12,7 +13,7 @@ class UserInDB(UserBase):
 
 
 class UserResponse(BaseModel):
-    id: int
+    id: UUID
     user_name: str
     email: EmailStr
     avatar: Optional[str] = None
@@ -25,3 +26,14 @@ class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+
+class RequestEmail(BaseModel):
+    email: EmailStr
+
+
+class ResetPassword(BaseModel):
+    email: str
+    reset_code: str
+    new_password: str
+

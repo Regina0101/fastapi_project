@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from uuid import UUID
 from typing import Optional
 from datetime import date
 from src.schemas.user import UserResponse
@@ -15,7 +16,7 @@ class ContactCreate(ContactBase):
     pass
 
 class ContactRead(ContactBase):
-    id: int = 1
+    id: UUID
     user: UserResponse | None
 
     class Config:

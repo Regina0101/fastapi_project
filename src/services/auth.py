@@ -1,14 +1,18 @@
+import pickle
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from typing import Optional
 from datetime import datetime, timedelta, timezone
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.database.db import get_async_session
 from src.entity.models import User
 from src.conf.config import config
+
+redis_client = Redis(host=config.REDIS_DOMAIN, port=config.REDIS_PORT, db=0, password=config.REDIS_PASSWORD)
 
 
 class Auth:
@@ -68,14 +72,38 @@ class Auth:
         except JWTError:
             raise credentials_exception
 
-        query = select(User).filter(User.email == email)
-        result = await db.execute(query)
-        user = result.scalars().first()
+        cached_user = await redis_client.get(email)
+
+        if cached_user:
+            user = pickle.loads(cached_user)
+        else:
+            query = select(User).filter(User.email == email)
+            result = await db.execute(query)
+            user = result.scalars().first()
+            if user:
+                await redis_client.set(email, pickle.dumps(user), ex=60*60)
 
         if user is None:
             raise credentials_exception
 
         return user
+
+    def create_email_token(self, data: dict):
+        to_encode = data.copy()
+        expire = datetime.now(timezone.utc) + timedelta(days=1)
+        to_encode.update({"iat": datetime.now(timezone.utc), "exp": expire})
+        token = jwt.encode(to_encode, config.SECRET_KEY, algorithm=config.ALGORITHM)
+        return token
+
+    async def get_email_from_token(self, token: str):
+        try:
+            payload = jwt.decode(token, config.SECRET_KEY, algorithms=[config.ALGORITHM])
+            email = payload["sub"]
+            return email
+        except JWTError as e:
+            print(e)
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                detail="Invalid token for email verification")
 
 
 
