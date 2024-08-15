@@ -1,5 +1,4 @@
 import logging
-
 from fastapi import APIRouter, HTTPException, Depends, Security, status, BackgroundTasks, Request
 import random
 from fastapi.security import OAuth2PasswordRequestForm, HTTPAuthorizationCredentials, HTTPBearer
@@ -17,9 +16,23 @@ router = APIRouter(prefix='/auth', tags=['auth'])
 
 get_refresh_token = HTTPBearer()
 
-
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def signup(body: UserBase,request: Request, bt: BackgroundTasks, session: AsyncSession = Depends(get_async_session)):
+async def signup(body: UserBase, request: Request, bt: BackgroundTasks, session: AsyncSession = Depends(get_async_session)):
+    """
+    Registers a new user in the system.
+
+    :param body: The user data for registration.
+    :type body: UserBase
+    :param request: The request object, used to retrieve the base URL for the confirmation email.
+    :type request: Request
+    :param bt: Background tasks to handle sending confirmation emails asynchronously.
+    :type bt: BackgroundTasks
+    :param session: The database session used for querying and committing changes.
+    :type session: AsyncSession
+    :return: The newly created user, excluding the password.
+    :rtype: UserResponse
+    :raises HTTPException: If the email is already registered (status code 409).
+    """
     query = select(User).filter(User.email == body.email)
     result = await session.execute(query)
     existing_user = result.scalars().first()
@@ -48,6 +61,17 @@ async def signup(body: UserBase,request: Request, bt: BackgroundTasks, session: 
 
 @router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), session: AsyncSession = Depends(get_async_session)):
+    """
+    Authenticates a user and returns an access token and refresh token.
+
+    :param form_data: The user's login credentials.
+    :type form_data: OAuth2PasswordRequestForm
+    :param session: The database session used for querying.
+    :type session: AsyncSession
+    :return: A dictionary containing the access token, refresh token, and token type.
+    :rtype: Token
+    :raises HTTPException: If the credentials are invalid or the email is not confirmed (status code 401).
+    """
     query = select(User).filter(User.email == form_data.username)
     result = await session.execute(query)
     user = result.scalars().first()
@@ -68,6 +92,17 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Async
 
 @router.get('/refresh_token', response_model=Token)
 async def refresh_token(credentials: HTTPAuthorizationCredentials = Security(get_refresh_token), session: AsyncSession = Depends(get_async_session)):
+    """
+    Refreshes the user's access token using the provided refresh token.
+
+    :param credentials: The current refresh token provided in the request header.
+    :type credentials: HTTPAuthorizationCredentials
+    :param session: The database session used for querying and updating the user's tokens.
+    :type session: AsyncSession
+    :return: A dictionary containing the new access token, refresh token, and token type.
+    :rtype: Token
+    :raises HTTPException: If the refresh token is invalid or does not match the one stored in the database (status code 401).
+    """
     refresh_token = credentials.credentials
     email = await auth.decode_refresh_token(refresh_token)
 
@@ -87,6 +122,17 @@ async def refresh_token(credentials: HTTPAuthorizationCredentials = Security(get
 
 @router.get('/confirmed_email/{token}')
 async def confirmed_email(token: str, session: AsyncSession = Depends(get_async_session)):
+    """
+    Confirms the user's email address using the provided verification token.
+
+    :param token: The token sent to the user's email for verification.
+    :type token: str
+    :param session: The database session used for querying and updating the user's status.
+    :type session: AsyncSession
+    :return: A message indicating whether the email confirmation was successful.
+    :rtype: dict
+    :raises HTTPException: If the token is invalid or the user is not found (status code 400).
+    """
     email = await auth.get_email_from_token(token)
     query = select(User).filter(User.email == email)
     result = await session.execute(query)
@@ -106,6 +152,21 @@ async def confirmed_email(token: str, session: AsyncSession = Depends(get_async_
 @router.post('/request_email')
 async def request_email(body: RequestEmail, background_tasks: BackgroundTasks, request: Request,
                         session: AsyncSession = Depends(get_async_session)):
+    """
+    Sends a confirmation email to the user if the email is not already confirmed.
+
+    :param body: The email address to send the confirmation to.
+    :type body: RequestEmail
+    :param background_tasks: Background tasks to handle sending the email asynchronously.
+    :type background_tasks: BackgroundTasks
+    :param request: The request object used to retrieve the base URL for the confirmation email.
+    :type request: Request
+    :param session: The database session used for querying.
+    :type session: AsyncSession
+    :return: A message indicating that the confirmation email has been sent.
+    :rtype: dict
+    :raises HTTPException: If the user is not found (status code 404).
+    """
     query = select(User).filter(User.email == body.email)
     result = await session.execute(query)
     user = result.scalars().first()
@@ -121,10 +182,21 @@ async def request_email(body: RequestEmail, background_tasks: BackgroundTasks, r
     return {"message": "Check your email for confirmation."}
 
 
-
 @router.post('/request_password_reset')
 async def request_password_reset(body: RequestEmail, background_tasks: BackgroundTasks,
                                  session: AsyncSession = Depends(get_async_session)):
+    """
+    Sends a password reset code to the user's email if the account exists.
+
+    :param body: The email address associated with the user account.
+    :type body: RequestEmail
+    :param background_tasks: Background tasks to handle sending the reset email asynchronously.
+    :type background_tasks: BackgroundTasks
+    :param session: The database session used for querying.
+    :type session: AsyncSession
+    :return: A message indicating that the password reset code has been sent.
+    :rtype: dict
+    """
     query = select(User).filter(User.email == body.email)
     result = await session.execute(query)
     user = result.scalars().first()
@@ -138,6 +210,17 @@ async def request_password_reset(body: RequestEmail, background_tasks: Backgroun
 
 @router.post('/reset_password')
 async def reset_password(body: ResetPassword, session: AsyncSession = Depends(get_async_session)):
+    """
+    Resets the user's password using the provided reset code.
+
+    :param body: The email address, reset code, and new password for the user.
+    :type body: ResetPassword
+    :param session: The database session used for querying and updating the user's password.
+    :type session: AsyncSession
+    :return: A message indicating that the password was successfully reset.
+    :rtype: dict
+    :raises HTTPException: If the reset code or email is invalid (status code 400).
+    """
     stored_code = await redis_client.get(f"reset_code:{body.email}")
     if stored_code:
         stored_code = stored_code.decode('utf-8')

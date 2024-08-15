@@ -12,8 +12,23 @@ router = APIRouter(prefix='/contacts', tags=['contacts'])
 
 
 @router.post("/", response_model=ContactRead, dependencies=[Depends(RateLimiter(times=5, seconds=60))])
-async def create_contact(contact: ContactCreate, session: AsyncSession = Depends(get_async_session),
-                         current_user: User = Depends(auth.get_current_user)):
+async def create_contact(
+    contact: ContactCreate,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(auth.get_current_user)
+) -> ContactRead:
+    """
+    Creates a new contact for the currently authenticated user.
+
+    :param contact: The contact data to be created.
+    :type contact: ContactCreate
+    :param session: The database session.
+    :type session: AsyncSession
+    :param current_user: The currently authenticated user.
+    :type current_user: User
+    :return: The created contact.
+    :rtype: ContactRead
+    """
     new_contact = Contact(**contact.dict(), user_id=current_user.id)
     session.add(new_contact)
     await session.commit()
@@ -22,8 +37,24 @@ async def create_contact(contact: ContactCreate, session: AsyncSession = Depends
 
 
 @router.get("/{contact_id}", response_model=ContactRead, dependencies=[Depends(RateLimiter(times=10, seconds=60))])
-async def read_contact(contact_id: UUID, session: AsyncSession = Depends(get_async_session),
-                       current_user: User = Depends(auth.get_current_user)):
+async def read_contact(
+    contact_id: UUID,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(auth.get_current_user)
+) -> ContactRead:
+    """
+    Retrieves a specific contact by its ID.
+
+    :param contact_id: The ID of the contact to retrieve.
+    :type contact_id: UUID
+    :param session: The database session.
+    :type session: AsyncSession
+    :param current_user: The currently authenticated user.
+    :type current_user: User
+    :return: The contact with the specified ID.
+    :rtype: ContactRead
+    :raises HTTPException: If the contact is not found or the user is not authorized to view it.
+    """
     query = select(Contact).filter(Contact.id == contact_id)
     result = await session.execute(query)
     contact = result.scalars().first()
@@ -37,8 +68,27 @@ async def read_contact(contact_id: UUID, session: AsyncSession = Depends(get_asy
 
 
 @router.put("/{contact_id}", response_model=ContactRead, dependencies=[Depends(RateLimiter(times=5, seconds=60))])
-async def update_contact(contact_id: UUID, contact: ContactCreate, session: AsyncSession = Depends(get_async_session),
-                         current_user: User = Depends(auth.get_current_user)):
+async def update_contact(
+    contact_id: UUID,
+    contact: ContactCreate,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(auth.get_current_user)
+) -> ContactRead:
+    """
+    Updates an existing contact with new data.
+
+    :param contact_id: The ID of the contact to update.
+    :type contact_id: UUID
+    :param contact: The updated contact data.
+    :type contact: ContactCreate
+    :param session: The database session.
+    :type session: AsyncSession
+    :param current_user: The currently authenticated user.
+    :type current_user: User
+    :return: The updated contact.
+    :rtype: ContactRead
+    :raises HTTPException: If the contact is not found or the user is not authorized to update it.
+    """
     query = select(Contact).filter(Contact.id == contact_id)
     result = await session.execute(query)
     existing_contact = result.scalars().first()
@@ -56,8 +106,24 @@ async def update_contact(contact_id: UUID, contact: ContactCreate, session: Asyn
     return existing_contact
 
 @router.delete("/{contact_id}", response_model=ContactRead, dependencies=[Depends(RateLimiter(times=5, seconds=60))])
-async def delete_contact(contact_id: UUID, session: AsyncSession = Depends(get_async_session),
-                         current_user: User = Depends(auth.get_current_user)):
+async def delete_contact(
+    contact_id: UUID,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(auth.get_current_user)
+) -> ContactRead:
+    """
+    Deletes a specific contact by its ID.
+
+    :param contact_id: The ID of the contact to delete.
+    :type contact_id: UUID
+    :param session: The database session.
+    :type session: AsyncSession
+    :param current_user: The currently authenticated user.
+    :type current_user: User
+    :return: The deleted contact.
+    :rtype: ContactRead
+    :raises HTTPException: If the contact is not found or the user is not authorized to delete it.
+    """
     query = select(Contact).filter(Contact.id == contact_id)
     result = await session.execute(query)
     contact = result.scalars().first()

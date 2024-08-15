@@ -8,7 +8,6 @@ from src.schemas.user import UserResponse
 from src.services.auth import auth
 from src.conf.config import config
 
-
 cloudinary.config(
     cloud_name=config.CLD_NAME,
     api_key=config.CLD_API_KEY,
@@ -19,14 +18,47 @@ router = APIRouter(prefix='/users', tags=["users"])
 
 
 @router.get("/me", response_model=UserResponse)
-async def read_users_me(current_user: User = Depends(auth.get_current_user)):
+async def read_users_me(
+    current_user: User = Depends(auth.get_current_user)
+) -> UserResponse:
+    """
+    Retrieves the currently authenticated user's profile information.
+
+    :param current_user: The currently authenticated user.
+    :type current_user: User
+    :return: The profile information of the current user.
+    :rtype: UserResponse
+    """
     return current_user
 
+
 @router.patch("/upload-avatar/", response_model=dict)
-async def upload_avatar(file: UploadFile = File(),session: AsyncSession = Depends(get_async_session),
-                        current_user: User = Depends(auth.get_current_user)):
+async def upload_avatar(
+    file: UploadFile = File(...),
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(auth.get_current_user)
+) -> dict:
+    """
+    Uploads a new avatar image for the currently authenticated user and updates their profile.
+
+    :param file: The image file to be uploaded.
+    :type file: UploadFile
+    :param session: The database session.
+    :type session: AsyncSession
+    :param current_user: The currently authenticated user.
+    :type current_user: User
+    :return: A dictionary containing the URL of the uploaded avatar.
+    :rtype: dict
+    :raises HTTPException: If there is an error uploading the image or retrieving its URL.
+    """
     try:
-        result = cloudinary.uploader.upload(file.file, public_id=f"{current_user.email}", owerite=True, width=250, height=250)
+        result = cloudinary.uploader.upload(
+            file.file,
+            public_id=f"{current_user.email}",
+            overwrite=True,
+            width=250,
+            height=250
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {e} uploading image")
 

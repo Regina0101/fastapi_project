@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     MAIL_USERNAME: EmailStr = "user@gmail.com"
     MAIL_PASSWORD: str = "543678"
-    MAIL_FROM: str = "user"
+    MAIL_FROM: str = "user@gmail.com"
     MAIL_PORT: int = 8000
     MAIL_SERVER: str = "server.mt.ua"
     REDIS_DOMAIN: str = 'localhost'
